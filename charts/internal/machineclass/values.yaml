@@ -14,6 +14,14 @@ machineClasses:
   guestId: coreos64Guest
   numCpus: 2
   memory: 4096
+  nodeTemplate:
+    capacity:
+      cpu: 2
+      gpu: 1
+      memory: 25Gi
+    instanceType: t1.small
+    region: myregion
+    zone: myregion-a
   #memoryReservationLockedToMax: true
   #extraConfig:
   #  sched.swap.vmxSwapEnabled: "false"

@@ -47,7 +47,6 @@ import (
 
 	api "github.com/gardener/gardener-extension-provider-vsphere/pkg/apis/vsphere"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-vsphere/pkg/apis/vsphere/v1alpha1"
-	vspherev1alpha1 "github.com/gardener/gardener-extension-provider-vsphere/pkg/apis/vsphere/v1alpha1"
 	. "github.com/gardener/gardener-extension-provider-vsphere/pkg/controller/worker"
 	"github.com/gardener/gardener-extension-provider-vsphere/pkg/vsphere"
 )
@@ -138,6 +137,9 @@ var _ = Describe("Machines", func() {
 				zone1 string
 				zone2 string
 
+				nodeCapacity         corev1.ResourceList
+				nodeTemplateZone1    machinev1alpha1.NodeTemplate
+				nodeTemplateZone2    machinev1alpha1.NodeTemplate
 				machineConfiguration *machinev1alpha1.MachineConfiguration
 
 				switch1 string
@@ -195,6 +197,25 @@ var _ = Describe("Machines", func() {
 
 				zone1 = "testregion-a"
 				zone2 = "testregion-b"
+
+				nodeCapacity = corev1.ResourceList{
+					"cpu":    resource.MustParse("8"),
+					"gpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("128Gi"),
+				}
+				nodeTemplateZone1 = machinev1alpha1.NodeTemplate{
+					Capacity:     nodeCapacity,
+					InstanceType: machineType,
+					Region:       region,
+					Zone:         zone1,
+				}
+
+				nodeTemplateZone2 = machinev1alpha1.NodeTemplate{
+					Capacity:     nodeCapacity,
+					InstanceType: machineType,
+					Region:       region,
+					Zone:         zone2,
+				}
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
 
@@ -269,6 +290,9 @@ var _ = Describe("Machines", func() {
 									Name:    machineImageName,
 									Version: machineImageVersion,
 								},
+								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
+									Capacity: nodeCapacity,
+								},
 								UserData: userData,
 								Zones: []string{
 									zone1,
@@ -285,6 +309,9 @@ var _ = Describe("Machines", func() {
 								MachineImage: extensionsv1alpha1.MachineImage{
 									Name:    machineImageName,
 									Version: machineImageVersion,
+								},
+								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
+									Capacity: nodeCapacity,
 								},
 								UserData: userData,
 								Zones: []string{
@@ -340,10 +367,10 @@ var _ = Describe("Machines", func() {
 				machineClassNamePool2Zone1 := fmt.Sprintf("%s-%s-z1", namespace, namePool2)
 				machineClassNamePool2Zone2 := fmt.Sprintf("%s-%s-z2", namespace, namePool2)
 
-				machineClassPool1Zone1 := prepareMachineClass(defaultMachineClass, machineClassNamePool1Zone1, resourcePool, datastore, workerPoolHash1, switch1, host, username, password, insecureSSL)
-				machineClassPool1Zone2 := prepareMachineClass(defaultMachineClass, machineClassNamePool1Zone2, resourcePool2, datastore2, workerPoolHash1, switch2, host, username, password, insecureSSL)
-				machineClassPool2Zone1 := prepareMachineClass(defaultMachineClass, machineClassNamePool2Zone1, resourcePool, datastore, workerPoolHash2, switch1, host, username, password, insecureSSL)
-				machineClassPool2Zone2 := prepareMachineClass(defaultMachineClass, machineClassNamePool2Zone2, resourcePool2, datastore2, workerPoolHash2, switch2, host, username, password, insecureSSL)
+				machineClassPool1Zone1 := prepareMachineClass(defaultMachineClass, machineClassNamePool1Zone1, resourcePool, datastore, workerPoolHash1, switch1, host, username, password, insecureSSL, nodeTemplateZone1)
+				machineClassPool1Zone2 := prepareMachineClass(defaultMachineClass, machineClassNamePool1Zone2, resourcePool2, datastore2, workerPoolHash1, switch2, host, username, password, insecureSSL, nodeTemplateZone2)
+				machineClassPool2Zone1 := prepareMachineClass(defaultMachineClass, machineClassNamePool2Zone1, resourcePool, datastore, workerPoolHash2, switch1, host, username, password, insecureSSL, nodeTemplateZone1)
+				machineClassPool2Zone2 := prepareMachineClass(defaultMachineClass, machineClassNamePool2Zone2, resourcePool2, datastore2, workerPoolHash2, switch2, host, username, password, insecureSSL, nodeTemplateZone2)
 
 				machineClassWithHashPool1Zone1 := machineClassPool1Zone1["name"].(string)
 				machineClassWithHashPool1Zone2 := machineClassPool1Zone2["name"].(string)
@@ -372,10 +399,10 @@ var _ = Describe("Machines", func() {
 				// Test workerDelegate.UpdateMachineDeployments()
 				expectedImages := &apiv1alpha1.WorkerStatus{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: vspherev1alpha1.SchemeGroupVersion.String(),
+						APIVersion: apiv1alpha1.SchemeGroupVersion.String(),
 						Kind:       "WorkerStatus",
 					},
-					MachineImages: []vspherev1alpha1.MachineImage{
+					MachineImages: []apiv1alpha1.MachineImage{
 						{
 							Name:    machineImageName,
 							Version: machineImageVersion,
@@ -656,7 +683,7 @@ func createCluster(cloudProfileName, shootVersion string, images []apiv1alpha1.M
 	return cluster
 }
 
-func prepareMachineClass(defaultMachineClass map[string]interface{}, machineClassName, resourcePool, datastore, workerPoolHash, switchUUID, host, username, password string, insecureSSL bool) map[string]interface{} {
+func prepareMachineClass(defaultMachineClass map[string]interface{}, machineClassName, resourcePool, datastore, workerPoolHash, switchUUID, host, username, password string, insecureSSL bool, nodeTemplate machinev1alpha1.NodeTemplate) map[string]interface{} {
 	out := make(map[string]interface{}, len(defaultMachineClass)+10)
 
 	for k, v := range defaultMachineClass {
@@ -671,6 +698,7 @@ func prepareMachineClass(defaultMachineClass map[string]interface{}, machineClas
 	out["secret"].(map[string]interface{})[vsphere.Username] = username
 	out["secret"].(map[string]interface{})[vsphere.Password] = password
 	out["secret"].(map[string]interface{})[vsphere.InsecureSSL] = strconv.FormatBool(insecureSSL)
+	out["nodeTemplate"] = nodeTemplate
 
 	return out
 }

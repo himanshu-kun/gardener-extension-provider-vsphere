@@ -167,6 +167,12 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				"systemDisk": map[string]interface{}{
 					"size": values.systemDiskSizeInGB,
 				},
+				"nodeTemplate": machinev1alpha1.NodeTemplate{
+					Capacity:     pool.NodeTemplate.Capacity,
+					InstanceType: pool.MachineType,
+					Region:       w.worker.Spec.Region,
+					Zone:         zone,
+				},
 				"tags": map[string]string{
 					"mcm.gardener.cloud/cluster": w.worker.Namespace,
 					"mcm.gardener.cloud/role":    "node",
