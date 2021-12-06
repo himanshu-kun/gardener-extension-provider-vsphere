@@ -167,12 +167,6 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				"systemDisk": map[string]interface{}{
 					"size": values.systemDiskSizeInGB,
 				},
-				"nodeTemplate": machinev1alpha1.NodeTemplate{
-					Capacity:     pool.NodeTemplate.Capacity,
-					InstanceType: pool.MachineType,
-					Region:       w.worker.Spec.Region,
-					Zone:         zone,
-				},
 				"tags": map[string]string{
 					"mcm.gardener.cloud/cluster": w.worker.Namespace,
 					"mcm.gardener.cloud/role":    "node",
@@ -200,6 +194,15 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				}
 				if len(values.MachineTypeOptions.ExtraConfig) > 0 {
 					machineClassSpec["extraConfig"] = values.MachineTypeOptions.ExtraConfig
+				}
+			}
+
+			if pool.NodeTemplate != nil {
+				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
+					Capacity:     pool.NodeTemplate.Capacity,
+					InstanceType: pool.MachineType,
+					Region:       w.worker.Spec.Region,
+					Zone:         zone,
 				}
 			}
 
